@@ -23,3 +23,6 @@ frontend/dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Local repositories for analysis
+workspaces/
