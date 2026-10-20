@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.routes.analysis import router as analysis_router
+from app.api.routes.graphs import router as graphs_router
 from app.api.routes.health import router as health_router
 from app.api.routes.repositories import (
     router as repositories_router,
@@ -29,6 +30,11 @@ app.include_router(
 
 app.include_router(
     analysis_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    graphs_router,
     prefix="/api/v1",
 )
 
