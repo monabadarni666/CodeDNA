@@ -64,6 +64,16 @@ class PythonASTVisitor(ast.NodeVisitor):
 
         return None
 
+    def _current_caller(self) -> str | None:
+        for index in range(len(self.scope) - 1, -1, -1):
+            if self.scope[index][1] == "function":
+                return ".".join(
+                    name
+                    for name, _ in self.scope[:index + 1]
+                )
+
+        return None
+
     def _register_other_binding(self, name: str) -> None:
         scope = self._binding_scope()
 
@@ -94,8 +104,25 @@ class PythonASTVisitor(ast.NodeVisitor):
         self._register_other_binding(node.name)
         self._add_symbol(node, "class")
 
+        # Definition expressions run in the enclosing context.
+        for decorator in node.decorator_list:
+            self.visit(decorator)
+
+        for base in node.bases:
+            self.visit(base)
+
+        for keyword in node.keywords:
+            self.visit(keyword)
+
+        for type_param in getattr(node, "type_params", []):
+            self.visit(type_param)
+
+        # The class body executes during class creation.
         self.scope.append((node.name, "class"))
-        self.generic_visit(node)
+
+        for statement in node.body:
+            self.visit(statement)
+
         self.scope.pop()
 
     def _visit_function(
@@ -111,28 +138,51 @@ class PythonASTVisitor(ast.NodeVisitor):
         )
 
         self._add_symbol(node, kind)
+
+        # Evaluate decorators in the enclosing scope.
+        for decorator in node.decorator_list:
+            self.visit(decorator)
+
+        # Default arguments are evaluated at definition time.
+        for default in node.args.defaults:
+            self.visit(default)
+
+        for default in node.args.kw_defaults:
+            if default is not None:
+                self.visit(default)
+
+        all_args = [
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+        ]
+
+        if node.args.vararg is not None:
+            all_args.append(node.args.vararg)
+
+        if node.args.kwarg is not None:
+            all_args.append(node.args.kwarg)
+
+        # Visit annotation expressions outside the function body.
+        for arg in all_args:
+            if arg.annotation is not None:
+                self.visit(arg.annotation)
+
+        if node.returns is not None:
+            self.visit(node.returns)
+
+        for type_param in getattr(node, "type_params", []):
+            self.visit(type_param)
+
+        # Enter the function's own execution context.
         self.scope.append((node.name, "function"))
 
-        arguments = node.args
-
-        for arg in [
-            *arguments.posonlyargs,
-            *arguments.args,
-            *arguments.kwonlyargs,
-        ]:
+        for arg in all_args:
             self._register_other_binding(arg.arg)
 
-        if arguments.vararg is not None:
-            self._register_other_binding(
-                arguments.vararg.arg
-            )
+        for statement in node.body:
+            self.visit(statement)
 
-        if arguments.kwarg is not None:
-            self._register_other_binding(
-                arguments.kwarg.arg
-            )
-
-        self.generic_visit(node)
         self.scope.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -153,6 +203,7 @@ class PythonASTVisitor(ast.NodeVisitor):
             bound_name = (
                 alias.asname or alias.name.split(".")[0]
             )
+
             self._register_other_binding(bound_name)
 
             self.imports.append(
@@ -188,13 +239,9 @@ class PythonASTVisitor(ast.NodeVisitor):
         else:
             kind = "dynamic"
 
-        caller = ".".join(
-            name for name, _ in self.scope
-        ) or None
-
         self.calls.append(
             CodeCall(
-                caller=caller,
+                caller=self._current_caller(),
                 callee=ast.unparse(node.func),
                 kind=kind,
                 line=node.lineno,
