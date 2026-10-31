@@ -6,6 +6,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.repositories import (
     router as repositories_router,
 )
+from app.api.routes.repository_graphs import router as repository_graphs_router
 from app.core.config import (
     APP_DESCRIPTION,
     APP_NAME,
@@ -35,6 +36,11 @@ app.include_router(
 
 app.include_router(
     graphs_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    repository_graphs_router,
     prefix="/api/v1",
 )
 
