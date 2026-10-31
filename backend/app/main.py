@@ -7,6 +7,7 @@ from app.api.routes.repositories import (
     router as repositories_router,
 )
 from app.api.routes.repository_graphs import router as repository_graphs_router
+from app.api.routes.git_impact import router as git_impact_router
 from app.core.config import (
     APP_DESCRIPTION,
     APP_NAME,
@@ -44,6 +45,11 @@ app.include_router(
     prefix="/api/v1",
 )
 
+
+app.include_router(
+    git_impact_router,
+    prefix="/api/v1",
+)
 
 @app.get("/", tags=["General"])
 def root() -> dict[str, str]:
