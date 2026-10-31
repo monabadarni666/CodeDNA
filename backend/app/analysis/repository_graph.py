@@ -2,13 +2,9 @@ from pathlib import Path
 
 import networkx as nx
 
-from app.analysis.cross_file import (
-    MAX_ROOT_FILES,
-    find_cross_file_calls,
-)
-from app.analysis.dependency_graph import (
-    build_dependency_graph,
-)
+from app.analysis.cross_file import find_cross_file_calls
+from app.analysis.dependency_graph import build_dependency_graph
+from app.analysis.module_discovery import discover_python_modules
 from app.analysis.python_parser import analyze_python_file
 from app.analysis.symbol_resolver import resolve_local_calls
 
@@ -17,51 +13,36 @@ def build_repository_dependency_graph(
     repository_root: str | Path,
 ) -> nx.DiGraph:
     """
-    Build a repository-level dependency graph.
+    Build a dependency graph across discovered Python modules.
 
-    Supported scope:
+    Supports:
     - Root-level Python modules
+    - Regular Python packages
     - Local candidate call relationships
-    - Supported cross-file from-import calls
+    - Supported cross-file and cross-package imports
 
-    Edges represent candidate relationships,
-    not guaranteed runtime dependencies.
+    Edges are static candidates, not guaranteed
+    runtime dependencies.
     """
     root = Path(repository_root).expanduser()
 
-    if root.is_symlink() or not root.is_dir():
-        raise ValueError(
-            "Repository root must be a real directory"
-        )
-
-    python_files = sorted(
-        path
-        for path in root.iterdir()
-        if path.suffix == ".py"
-        and path.stem.isidentifier()
-        and path.is_file()
-        and not path.is_symlink()
-    )
-
-    if len(python_files) > MAX_ROOT_FILES:
-        raise ValueError(
-            "Repository exceeds supported module limit"
-        )
+    modules = discover_python_modules(root)
 
     graph = nx.DiGraph(
         repository=str(root),
-        file_count=len(python_files),
+        file_count=len(modules),
     )
 
-    # Step 1: Build the graph for each Python file.
-    for file_path in python_files:
-        analysis = analyze_python_file(file_path)
+    # Build the local graph of every discovered module.
+    for module in modules:
+        analysis = analyze_python_file(module.path)
+
         resolutions = resolve_local_calls(analysis)
 
         file_graph = build_dependency_graph(
             analysis=analysis,
             resolutions=resolutions,
-            file_id=file_path.name,
+            file_id=module.relative_path,
         )
 
         graph.add_nodes_from(
@@ -72,15 +53,15 @@ def build_repository_dependency_graph(
             file_graph.edges(data=True)
         )
 
-    # Step 2: Add dependencies between files.
+    # Add dependencies across files and packages.
     cross_file_calls = find_cross_file_calls(root)
 
     for call in cross_file_calls:
         caller = call.caller
         target = call.target
 
-        # Both symbols must exist as unique graph nodes.
-        # Ambiguous symbols are not linked.
+        # Only connect symbols represented by
+        # unique, unambiguous graph node IDs.
         if caller not in graph or target not in graph:
             continue
 
