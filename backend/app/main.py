@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 
 from app.api.routes.analysis import router as analysis_router
+from app.api.routes.git_impact import router as git_impact_router
 from app.api.routes.graphs import router as graphs_router
 from app.api.routes.health import router as health_router
 from app.api.routes.repositories import (
     router as repositories_router,
 )
 from app.api.routes.repository_graphs import router as repository_graphs_router
-from app.api.routes.git_impact import router as git_impact_router
+from app.api.routes.risk_scoring import router as risk_scoring_router
 from app.core.config import (
     APP_DESCRIPTION,
     APP_NAME,
@@ -48,6 +49,11 @@ app.include_router(
 
 app.include_router(
     git_impact_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    risk_scoring_router,
     prefix="/api/v1",
 )
 
