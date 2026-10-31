@@ -85,19 +85,19 @@ def assess_symbol_risk(
     indirect_count = len(indirect)
     impacted_file_count = len(caller_paths)
 
-    common = dict(
-        old_path=change.old_path,
-        new_path=change.new_path,
-        qualified_name=change.qualified_name,
-        kind=change.kind,
-        change_type=change.change_type,
-        graph_matched=change.graph_matched,
-        direct_count=direct_count,
-        indirect_count=indirect_count,
-        impacted_file_count=impacted_file_count,
-        direct_callers=direct,
-        indirect_callers=indirect,
-    )
+    common = {
+        "old_path": change.old_path,
+        "new_path": change.new_path,
+        "qualified_name": change.qualified_name,
+        "kind": change.kind,
+        "change_type": change.change_type,
+        "graph_matched": change.graph_matched,
+        "direct_count": direct_count,
+        "indirect_count": indirect_count,
+        "impacted_file_count": impacted_file_count,
+        "direct_callers": direct,
+        "indirect_callers": indirect,
+    }
 
     if not change.graph_matched:
         return SymbolRisk(
@@ -105,9 +105,9 @@ def assess_symbol_risk(
             score=None,
             level="unknown",
             reasons=[
-                "Symbol could not be matched to a "
+                ("Symbol could not be matched to a "
                 "supported dependency graph node. "
-                "Risk cannot be scored reliably."
+                "Risk cannot be scored reliably.")
             ],
         )
 
